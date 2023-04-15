@@ -81,6 +81,10 @@ if !exists('g:minimap_git_colors')
     let g:minimap_git_colors = 0
 endif
 
+if !exists('g:minimap_git_strategy')
+    let g:minimap_git_strategy = "default"
+endif
+
 if !exists('g:minimap_enable_highlight_colorgroup')
     let g:minimap_enable_highlight_colorgroup = 1
 endif

@@ -917,9 +917,7 @@ endfunction
 
 function! s:minimap_color_git(win_info) abort
     " Get git info
-    let git_call = 'git diff -U0 -- ' . expand('%')
-    let git_diff = substitute(system(git_call), '\n\+&', '', '') | silent echo strtrans(git_diff)
-
+    let git_diff = s:minimap_git_diff()
     let lines = split(git_diff, '\n')
     let diff_list = []
     for line in lines
@@ -942,6 +940,25 @@ function! s:minimap_color_git(win_info) abort
             let idx = idx+1
         endwhile
     endfor
+endfunction
+
+function! s:minimap_git_diff() abort
+    " Call via gitgutter (provides git context for current buffer, prior to saving file)
+    if &modified == 1 && g:minimap_git_strategy == "gitgutter" && exists('*gitgutter#diff#run_diff')
+        try
+          let [previous_async, g:gitgutter_async] = [g:gitgutter_async, 0]
+          let git_diff = gitgutter#diff#run_diff(bufnr('%'), g:gitgutter_diff_relative_to, 1)
+          let g:gitgutter_async = previous_async
+          return git_diff
+        catch /.*/ " eg. "not tracked", "assume unchanged", "diff failed"
+          return ""
+        endtry
+    end
+
+    " Call git directly
+    let git_call = 'git diff -U0 -- ' . expand('%')
+    let git_diff = substitute(system(git_call), '\n\+&', '', '') | silent echo strtrans(git_diff)
+    return git_diff
 endfunction
 
 function! s:get_diff_state_flag(state) abort
