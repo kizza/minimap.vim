@@ -11,6 +11,8 @@ let s:last_range = {}
 let s:win_info = {}
 let s:len_cache = {}
 
+let g:minimap_mapped_buffer = -1
+
 function! minimap#vim#MinimapToggle() abort
     call s:toggle_window()
 endfunction
@@ -37,6 +39,12 @@ function! minimap#vim#MinimapRescan() abort
     call s:get_window_info()
     call s:refresh_minimap(1)
     call s:update_highlight()
+endfunction
+
+function! s:set_mapped_buffer() abort
+  if s:closed_on() || s:ignored() | return | endif
+
+  let g:minimap_mapped_buffer = bufnr("%")
 endfunction
 
 function! s:buffer_enter_handler() abort
@@ -140,6 +148,9 @@ function! s:close_auto() abort
 endfunction
 
 function! s:open_window() abort
+    " Set the buffer to be mappd
+    call s:set_mapped_buffer()
+
     " If the minimap window is already open jump to it
     let mmwinnr = bufwinnr('-MINIMAP-')
     if mmwinnr != -1 || s:closed_on() || s:ignored() " Don't open if file/buftype is ignored/closed on
@@ -287,11 +298,9 @@ function! s:closed_on() abort
 endfunction
 
 function! s:refresh_minimap(force) abort
-    if &filetype ==# 'minimap'
-        execute 'wincmd p'
-    endif
+    if g:minimap_mapped_buffer == -1 | return | endif
 
-    let bufnr = bufnr('%')
+    let bufnr = g:minimap_mapped_buffer
     let fname = fnamemodify(bufname('%'), ':p')
     let mmwinnr = bufwinnr('-MINIMAP-')
     if mmwinnr == -1
