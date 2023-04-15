@@ -364,7 +364,8 @@ function! s:render_minimap(mmwinnr, bufnr, fname, ftype) abort
     endif
 
     let curwinview = winsaveview()
-    execute a:mmwinnr . 'wincmd w'
+    let curwinid = win_getid()
+    call win_gotoid(win_getid(a:mmwinnr))
     setlocal modifiable
 
     let cache = s:minimap_cache[a:bufnr]
@@ -383,7 +384,7 @@ function! s:render_minimap(mmwinnr, bufnr, fname, ftype) abort
     endif
 
     setlocal nomodifiable
-    execute 'wincmd p'
+    call win_gotoid(curwinid)
     call winrestview(curwinview)
 endfunction
 
@@ -576,6 +577,7 @@ function! s:get_window_info() abort
         endif
 
         let curwinview = winsaveview()
+        let curwinid = win_getid()
 
         let mmwinid = win_getid(mmwinnr)
         let height = line('$')
@@ -637,7 +639,7 @@ function! s:get_window_info() abort
         endif
 
         " Go back to previous window and reset the view
-        execute 'wincmd p'
+        call win_gotoid(curwinid)
         call winrestview(curwinview)
 
         if has_key(s:len_cache, filename)
@@ -800,14 +802,16 @@ function! s:minimap_move() abort
     end
     let curr = line('.')
 
-    execute 'wincmd p'
+    let mapped_window_nr = bufwinnr(g:minimap_mapped_buffer)
+    call win_gotoid(win_getid(mapped_window_nr))
+
     " Position cursor at the top line of this mm block
     let pos = float2nr(1.0 * (curr-1) / s:win_info['mm_height'] * s:win_info['height']) + 2
     execute pos
     if g:minimap_highlight_range
         let range =  s:get_highlight_range(s:win_info)
     endif
-    execute 'wincmd p'
+    call win_gotoid(s:win_info['mmwinid'])
 
     let this_table = s:make_state_table_with_position(curr)
     if g:minimap_highlight_range
