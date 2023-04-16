@@ -215,6 +215,11 @@ function! s:open_window() abort
                         \ call s:minimap_update_color_search(getcmdline())
         endif
         autocmd VimEnter,DiffUpdated *                          call s:handle_autocmd(7)
+
+        " Unlike other autocmds, this is debounced for performance
+        if g:minimap_live_updates == 1
+            autocmd TextChanged *                               call minimap#live#update()
+        endif
     augroup END
 
     " https://github.com/neovim/neovim/issues/6211

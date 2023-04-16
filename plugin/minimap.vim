@@ -73,6 +73,13 @@ endif
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 """ Feature Flags
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+if !exists('g:minimap_live_updates')
+    let g:minimap_live_updates = 1
+endif
+if !exists('g:minimap_live_update_debounce')
+    let g:minimap_live_update_debounce = 1000
+endif
+
 if !exists('g:minimap_highlight_range')
     let g:minimap_highlight_range = 1
 endif
