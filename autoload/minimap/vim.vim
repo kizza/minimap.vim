@@ -128,6 +128,32 @@ function! s:quit_last() abort
     execute 'quit'
 endfunction
 
+function! s:minimap_buffer_closed() abort
+    let closed_buffer = expand("<abuf>")
+    if closed_buffer == g:minimap_mapped_buffer
+        let g:minimap_mapped_buffer = -1
+        if &filetype !=# 'minimap' && (empty(bufname()) || getbufvar(bufnr("%"), '&buftype') == "nofile")
+            call s:log("Closing the window")
+            call s:close_window() " We're down to an empty buffer, close the minimap
+        else
+            let prev_buffer = s:find_previous_buffer(closed_buffer)
+            if prev_buffer
+                call s:restore_closed_buffer(prev_buffer)
+            else
+                call s:log("no other buffers to open")
+            endif
+        end
+    endif
+endfunction
+
+" Allow the minimap window to remain, by restoring a previous buffer alongside
+function! s:restore_closed_buffer(bufnr) abort
+    let restore_position = g:minimap_left ? 'botright vertical ': 'topleft vertical '
+    let restore_width = winwidth(winnr()) - g:minimap_width - 1
+    let restore_cmd = restore_position . restore_width. 'split #' . a:bufnr
+    execute('silent! '. restore_cmd . ' | :filetype detect')
+endfunction
+
 function! s:close_auto() abort
     if winnr('$') == 3 && exists('g:coc_last_float_win') && win_id2win(g:coc_last_float_win) != 0
         " This addresses an issue where the minimap will not close
@@ -147,6 +173,32 @@ function! s:close_auto() abort
     call s:clear_highlights()
 endfunction
 
+
+" This can be tricky to determine amongst buffers being deleted/removed
+" `ls t` gives us a recent buffer list, which we can use to find something
+" useful
+"
+" We provide an optional exclude_buffer_id when we know not to match against
+" it (it seems there's a race condition when a buffer is deleted)
+function! s:find_previous_buffer(...) abort
+  let previous_buffer_ids = s:recent_buffer_ids()
+
+  let exclude_buffer_id = get(a:, 1, 0)
+  if exclude_buffer_id
+    let previous_buffer_ids = previous_buffer_ids->filter({_,id-> id != exclude_buffer_id})
+  endif
+
+  if len(previous_buffer_ids) > 0
+    return previous_buffer_ids[0]
+  else
+    return 0
+  endif
+endfunction
+
+function! s:recent_buffer_ids() abort
+  return execute("ls t")->split("\n")->map({_,line-> line->split(" ")[0]})
+endfunction
+
 function! s:open_window() abort
     " Set the buffer to be mappd
     call s:set_mapped_buffer()
@@ -160,7 +212,7 @@ function! s:open_window() abort
     let g:minimap_opening = 1 " Used to lock out autocmds, otherwise we get multiple fires that take a long time
 
     " Preserve 'previous buffer' when opening the minimap
-    let prev_buffer = bufnr('#')
+    let prev_buffer = s:find_previous_buffer()
     let curr_buffer = bufnr()
 
     let openpos = g:minimap_left ? 'topleft vertical ' : 'botright vertical '
@@ -282,6 +334,8 @@ function! s:handle_autocmd(cmd) abort
         elseif a:cmd == 7           " VimEnter,DiffUpdated *
             " echom 'VimEnter,DiffUpdated *'
             call s:minimap_diffoff()
+        elseif a:cmd == 8           " BufDelete *
+            call s:minimap_buffer_closed()
         endif
     endif
 endfunction
