@@ -23,6 +23,13 @@ command! MinimapRefresh         call minimap#vim#MinimapRefresh()
 command! MinimapUpdateHighlight call minimap#vim#MinimapUpdateHighlight()
 command! MinimapRescan          call minimap#vim#MinimapRescan()
 
+" command! Minimap                call minimap#vim#command("MinimapOpen")
+" command! MinimapClose           call minimap#vim#command("MinimapClose")
+" command! MinimapToggle          call minimap#vim#command("MinimapToggle")
+" command! MinimapRefresh         call minimap#vim#command("MinimapRefresh")
+" command! MinimapUpdateHighlight call minimap#vim#command("MinimapUpdateHighlight")
+" command! MinimapRescan          call minimap#vim#command("MinimapRescan")
+
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 """ Configuration
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -227,6 +234,10 @@ if g:minimap_auto_start == 1
     augroup MinimapAutoStart
         au!
         au BufEnter,Filetype * call minimap#vim#MinimapEnsure()
+        " au BufWinEnter * Minimap
+        " if g:minimap_auto_start_win_enter == 1
+        "     au WinEnter * Minimap
+        " endif
     augroup end
 endif
 

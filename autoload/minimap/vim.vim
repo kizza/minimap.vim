@@ -13,6 +13,22 @@ let s:len_cache = {}
 
 let g:minimap_mapped_buffer = -1
 
+function! minimap#vim#debug() abort
+  let verboselog = stdpath("cache")."/verbose.log"
+  call writefile(["New verbose..."], verboselog)
+  call writefile(["New log..."], stdpath("cache")."/minimap.vim.log")
+  let g:minimap_debug = 1
+  set verbosefile=/Users/keiran/.cache/nvim/verbose.log
+  set verbose=9
+endfunction
+
+function! s:log(text)
+  if !exists('g:minimap_debug') | return | endif
+
+  call writefile([expand("%") . " " . &filetype . " > ". a:text], stdpath("cache")."/minimap.vim.log", "a")
+  call writefile([expand("%") . " " . &filetype . " > ". a:text], stdpath("cache")."/verbose.log", "a")
+endfunction
+
 function! s:is_empty_buffer(bufnr) abort
   let empty = bufname(a:bufnr) == "" && getbufvar(a:bufnr, '&buftype') == ""
   let directory = bufname(a:bufnr) == "."
@@ -20,6 +36,8 @@ function! s:is_empty_buffer(bufnr) abort
 endfunction
 
 function! minimap#vim#MinimapEnsure() abort
+    call s:log("minimap#vim#MinimapEnsure called ". s:debug_buffer())
+
     let bufnr = str2nr(expand("<abuf>"))
     if g:minimap_opening == 1
       call s:log("ensure: Already opening")
@@ -28,15 +46,18 @@ function! minimap#vim#MinimapEnsure() abort
 
     " Empty buffer
     if s:is_empty_buffer(bufnr)
+      call s:log("ensure: buf is empty")
       return
     endif
 
     " Ignored or otherwise buffer
     let filetype = getbufvar(bufnr, "&filetype")
     if filetype ==# 'minimap' || s:closed_on() || s:ignored()
+      call s:log("minimap#vim#MinimapEnsure - returned as closed_on or ignored")
       return
     endif
 
+    call s:log("minimap#vim#MinimapEnsure bt=". &buftype .", ft=". &filetype)
     call s:open_window()
     call s:refresh_minimap(0)
 endfunction
@@ -76,12 +97,15 @@ function! minimap#vim#MinimapRescan() abort
 endfunction
 
 function! s:set_mapped_buffer() abort
+  " Don't need this guard if `open_window` does it for us
   if s:closed_on() || s:ignored() | return | endif
 
+  call s:log("Setting mapped buffer ". bufnr("%"))
   let g:minimap_mapped_buffer = bufnr("%")
 endfunction
 
 function! s:buffer_enter_handler() abort
+  call s:log("doing buf enter handler ". &filetype .", ".&buftype)
     if &filetype ==# 'minimap'
         call s:minimap_buffer_enter_handler()
     elseif &buftype !=# 'terminal'
@@ -142,12 +166,15 @@ function! s:close_window() abort
     endif
 
     if winnr() == mmwinnr
-        if winbufnr(2) != -1
+        " if winbufnr(2) != -1
+        if winnr("$") > 1
             " Other windows are open, only close this one
+            call s:log("Close just ths window ". winnr("$"))
             close
             exe 'wincmd p'
         endif
     else
+        call s:log("Closing mwindow")
         exe mmwinnr . 'wincmd c'
     endif
     let s:win_info = {}
@@ -165,6 +192,7 @@ endfunction
 function! s:minimap_buffer_closed() abort
     let closed_buffer = expand("<abuf>")
     if closed_buffer == g:minimap_mapped_buffer
+        call s:log("Closing ". closed_buffer. ", closed_name=". bufname(closed_buffer).", name=". bufname().", buftype=". getbufvar(bufnr("%"), '&buftype'). ", ft=". &filetype)
         let g:minimap_mapped_buffer = -1
         if &filetype !=# 'minimap' && (empty(bufname()) || getbufvar(bufnr("%"), '&buftype') == "nofile")
             call s:log("Closing the window")
@@ -172,6 +200,8 @@ function! s:minimap_buffer_closed() abort
         else
             let prev_buffer = s:find_previous_buffer(closed_buffer)
             if prev_buffer
+                call s:log("Restoring ". prev_buffer)
+                " NEED TO LEARN HOW TO RESTORE a directory
                 call s:restore_closed_buffer(prev_buffer)
             else
                 call s:log("no other buffers to open")
@@ -185,6 +215,7 @@ function! s:restore_closed_buffer(bufnr) abort
     let restore_position = g:minimap_left ? 'botright vertical ': 'topleft vertical '
     let restore_width = winwidth(winnr()) - g:minimap_width - 1
     let restore_cmd = restore_position . restore_width. 'split #' . a:bufnr
+    call s:log("Restore cmd ". restore_cmd)
     execute('silent! '. restore_cmd . ' | :filetype detect')
 endfunction
 
@@ -197,14 +228,16 @@ function! s:close_auto() abort
     endif
 
     if g:minimap_did_quit
+        call s:log("close_auto: minimap_did_quit")
         silent! call s:quit_last()
     else
         " Since we just closed a buffer, we want to completely wipe out
         " the minimap tied to that buffer.
-        bwipeout
+        " call s:log("close_auto: bwipeout")
+        " bwipeout
     endif
     " In case the plugin accidentally highlights the main buffer.
-    call s:clear_highlights()
+    " call s:clear_highlights()
 endfunction
 
 
@@ -233,8 +266,22 @@ function! s:recent_buffer_ids() abort
   return execute("ls t")->split("\n")->map({_,line-> line->split(" ")[0]})
 endfunction
 
+function! minimap#vim#info() abort
+  echo s:debug_buffer()
+endfunction
+
+function! s:debug_buffer(...) abort
+  let bufnr = get(a:, 1, bufnr("%"))
+  let filetype = getbufvar(bufnr, "&filetype")
+  let buftype = getbufvar(bufnr, "&buftype")
+  return "bufnr=". bufnr .", ft=". filetype .", bt=".buftype .", win count="
+    \ .winnr("$").", tabcount=". tabpagewinnr(tabpagenr(), '$')." mapped_buffer=". g:minimap_mapped_buffer
+    \ .", mapped buffer win=". bufwinnr(g:minimap_mapped_buffer)
+endfunction
+
 function! s:open_window() abort
     if s:closed_on() || s:ignored() " Don't open if file/buftype is ignored/closed on
+        call s:log("open_window: Called for ignored on on_closed buffers")
         return
     endif
 
@@ -243,9 +290,13 @@ function! s:open_window() abort
 
     " If the minimap window is already open jump to it
     let mmwinnr = bufwinnr('-MINIMAP-')
-    if mmwinnr != -1 || s:closed_on() || s:ignored() " Don't open if file/buftype is ignored/closed on
+    if mmwinnr != -1
+        call s:log("open_window: Already open, clearing highlights instead ". s:debug_buffer())
+        " call s:clear_highlights()
         return
     endif
+
+    call s:log("open_window: Opening window ". s:debug_buffer())
 
     let g:minimap_opening = 1 " Used to lock out autocmds, otherwise we get multiple fires that take a long time
 
@@ -254,6 +305,8 @@ function! s:open_window() abort
     let curr_buffer = bufnr()
 
     let openpos = g:minimap_left ? 'topleft vertical ' : 'botright vertical '
+    let open_cmd = openpos . g:minimap_width . 'split ' . '-MINIMAP-'
+    call s:log("Executing open window command ". open_cmd ." from ". s:debug_buffer())
     noautocmd execute 'silent! ' . openpos . g:minimap_width . 'split ' . '-MINIMAP-'
 
     " Buffer-local options
@@ -305,6 +358,7 @@ function! s:open_window() abort
                         \ call s:minimap_update_color_search(getcmdline())
         endif
         autocmd VimEnter,DiffUpdated *                          call s:handle_autocmd(7)
+        autocmd BufDelete *                                     call s:handle_autocmd(8)
 
         " Unlike other autocmds, this is debounced for performance
         if g:minimap_live_updates == 1
@@ -325,14 +379,24 @@ function! s:open_window() abort
     let &cpoptions = cpoptions_save
 
     execute 'wincmd p'
+    " let mapped_window_nr = bufwinnr(g:minimap_mapped_buffer)
+    " call win_gotoid(win_getid(mapped_window_nr))
+
+    try
     call s:refresh_minimap(1)
     call s:get_window_info() " Must call after refresh_minimap so we can get the mm height after creation
     call s:update_highlight()
+    catch /.*/
+      call s:log("ERROR opening the minimap!")
+    endtry
 
     " Restore buffer orders
     execute(prev_buffer . 'buffer')
     execute(curr_buffer . 'buffer')
 
+    if expand("%") == "-MINIMAP-"
+      call s:log("WHOA")
+    endif
     let g:minimap_opening = 0
 endfunction
 
@@ -344,21 +408,26 @@ function! s:handle_autocmd(cmd) abort
                 call s:close_window()
             endif
         elseif s:ignored()
+            call s:log("ignoring ".string(a:cmd). " " .expand("%"))
             return
         elseif a:cmd == 0           " WinEnter <buffer>
             " echom 'WinEnter <buffer>'
+            call s:log("handle_autocmd: close_auto ".string(a:cmd))
             call s:close_auto()
         elseif a:cmd == 1           " WinEnter *
             " echom 'WinEnter *'
             " If previously triggered minimap_did_quit, untrigger it
+            call s:log("handle_autocmd: win_enter_handler ".string(a:cmd))
             let g:minimap_did_quit = 0
             call s:win_enter_handler()
         elseif a:cmd == 2           " BufWritePost,VimResized *
             " echom 'BufWritePost,VimResized *'
+            call s:log("handle_autocmd: refresh and update highlight ".string(a:cmd))
             call s:refresh_minimap(1)
             call s:update_highlight()
         elseif a:cmd == 3           " BufEnter,FileType *
             " echom 'BufEnter,FileType *'
+            call s:log("handle_autocmd: buf_enter_handler ".string(a:cmd))
             call s:buffer_enter_handler()
         elseif a:cmd == 4           " FocusGained,CursorMoved,CursorMovedI <buffer>
             " echom 'FocusGained,CursorMoved,CursorMovedI <buffer>'
@@ -484,10 +553,14 @@ function! s:render_minimap(mmwinnr, bufnr, fname, ftype) abort
         silent 1delete _
     endif
 
+    try
     if g:minimap_base_highlight !=# 'Normal'
         silent! call matchdelete(g:minimap_base_matchid)
         call matchadd(g:minimap_base_highlight, '.*', 10, g:minimap_base_matchid)
     endif
+    catch /.*/
+      call s:log("ERROR matchdeleteing in render_minimap")
+    endtry
 
     setlocal nomodifiable
     call win_gotoid(curwinid)
@@ -779,9 +852,13 @@ function! s:update_highlight(...) abort
     endif
 
     " Clear all table highlights (search handles its own)
+    try
     for key in keys(g:minimap_line_state_table)
         silent! call matchdelete(g:minimap_line_state_table[key]['id'], s:win_info['mmwinid'])
     endfor
+    catch /.*/
+      call s:log("ERROR doing matchdelete in update_highlight")
+    endtry
 
     " Build the global highlight state table
     let g:minimap_line_state_table = {}
@@ -812,7 +889,7 @@ function! s:update_highlight(...) abort
 endfunction
 
 function! s:render_highlight_table(table) abort
-    if s:win_info == {}
+    if s:win_info == {} || win_id2win(s:win_info['mmwinid']) == 0
         return
     endif
     let mmwinid = s:win_info['mmwinid']
@@ -827,11 +904,15 @@ function! s:render_highlight_table(table) abort
         endif
 
         " Request to remove from the table.
+        "
+        try
         if info['state'] == 0
             silent! call matchdelete(g:minimap_line_state_table[mm_line_number]['id'], mmwinid)
             silent! unlet! g:minimap_line_state_table[mm_line_number]
             continue
         endif
+        catch /.*/ " eg. "not tracked", "assume unchanged", "diff failed"
+        endtry
 
         "
         " Bit mask to check states - Order matters for priority
@@ -900,6 +981,7 @@ endfunction
 function! s:clear_highlights() abort
     silent! call clearmatches(s:win_info['mmwinid'])
     let g:minimap_search_id_list = []
+    let g:minimap_line_state_table = {}
 endfunction
 
 function! s:minimap_move() abort
@@ -917,6 +999,7 @@ function! s:minimap_move() abort
     if g:minimap_highlight_range
         let range =  s:get_highlight_range(s:win_info)
     endif
+
     call win_gotoid(s:win_info['mmwinid'])
 
     let this_table = s:make_state_table_with_position(curr)
