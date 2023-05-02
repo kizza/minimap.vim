@@ -13,6 +13,34 @@ let s:len_cache = {}
 
 let g:minimap_mapped_buffer = -1
 
+function! s:is_empty_buffer(bufnr) abort
+  let empty = bufname(a:bufnr) == "" && getbufvar(a:bufnr, '&buftype') == ""
+  let directory = bufname(a:bufnr) == "."
+  return empty || directory
+endfunction
+
+function! minimap#vim#MinimapEnsure() abort
+    let bufnr = str2nr(expand("<abuf>"))
+    if g:minimap_opening == 1
+      call s:log("ensure: Already opening")
+      return
+    end
+
+    " Empty buffer
+    if s:is_empty_buffer(bufnr)
+      return
+    endif
+
+    " Ignored or otherwise buffer
+    let filetype = getbufvar(bufnr, "&filetype")
+    if filetype ==# 'minimap' || s:closed_on() || s:ignored()
+      return
+    endif
+
+    call s:open_window()
+    call s:refresh_minimap(0)
+endfunction
+
 function! minimap#vim#MinimapResize() abort
   let mmwinnr = bufwinnr('-MINIMAP-')
   if mmwinnr == -1 | return | endif
@@ -206,6 +234,10 @@ function! s:recent_buffer_ids() abort
 endfunction
 
 function! s:open_window() abort
+    if s:closed_on() || s:ignored() " Don't open if file/buftype is ignored/closed on
+        return
+    endif
+
     " Set the buffer to be mappd
     call s:set_mapped_buffer()
 

@@ -1,5 +1,5 @@
 import assert from "assert";
-import { delay, vimRunner } from "nvim-test-js";
+import { NeovimClient, delay, vimRunner } from "nvim-test-js";
 import * as path from "path";
 import buildHelpers from "./helpers"
 
@@ -58,6 +58,61 @@ describe("buffer management", () => {
 
         await nvim.command('bdelete')
         assert.equal(await get('winnr("$")'), "1")
+      }));
+
+    // it("quites when the last buffer is quit", () =>
+    //   withVim(async nvim => {
+    //     const { get } = buildHelpers(nvim)
+
+    //     await nvim.command('edit fixtures/buffer.txt');
+    //     assert.equal(await get('winnr("$")'), "2")
+
+    //     await nvim.command('q')
+    //     // assert.equal(await get('winnr("$")'), "0")
+    //   }));
+  });
+
+
+  xdescribe("amongst other floating windows", () => {
+    const openFloat = (nvim: NeovimClient) =>
+      nvim.commandOutput(
+        "call nvim_open_win(nvim_create_buf(v:false, v:true), 1, {'relative':'editor','row':10,'col':10,'width':80,'height':10})",
+      )
+
+    it("returns to the previous buffer", () =>
+      withVim(async nvim => {
+        const { get, getMinimapText } = buildHelpers(nvim)
+        assert.equal(await get('winnr("$")'), "1")
+        const foo = await openFloat(nvim)
+        console.log(foo)
+        assert.equal(await get('winnr("$")'), "2")
+
+        await nvim.command('edit fixtures/buffer.txt');
+        assert.equal(await get('expand("%")'), 'fixtures/buffer.txt')
+        assert.equal(await getMinimapText(), '⠿⠿⠿⠛⠛⠛⠋⠉⠉⠉')
+
+
+        const test = await get("tabpagewinnr(tabpagenr(), '$')")
+        console.log(test)
+      }))
+  })
+
+  describe("multiple buffers", () => {
+    it("returns to the previous buffer", () =>
+      withVim(async nvim => {
+        const { bufferCount, getMinimapText } = buildHelpers(nvim)
+
+        await nvim.command('edit fixtures/buffer.txt');
+        assert.equal(await getMinimapText(), '⠿⠿⠿⠛⠛⠛⠋⠉⠉⠉')
+        assert.equal(await bufferCount(), 1)
+
+        await nvim.command('edit fixtures/buffer_two.txt');
+        assert.equal(await getMinimapText(), '⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿')
+        assert.equal(await bufferCount(), 2)
+
+        await nvim.command('bdelete')
+        assert.equal(await getMinimapText(), '⠿⠿⠿⠛⠛⠛⠋⠉⠉⠉')
+        assert.equal(await bufferCount(), 1)
       }));
   });
 });

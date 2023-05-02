@@ -226,10 +226,7 @@ let g:minimap_run_update_highlight_count = 0
 if g:minimap_auto_start == 1
     augroup MinimapAutoStart
         au!
-        au BufWinEnter * Minimap
-        if g:minimap_auto_start_win_enter == 1
-            au WinEnter * Minimap
-        endif
+        au BufEnter,Filetype * call minimap#vim#MinimapEnsure()
     augroup end
 endif
 
