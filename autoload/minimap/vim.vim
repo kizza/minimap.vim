@@ -13,6 +13,12 @@ let s:len_cache = {}
 
 let g:minimap_mapped_buffer = -1
 
+function! minimap#vim#MinimapResize() abort
+  let mmwinnr = bufwinnr('-MINIMAP-')
+  if mmwinnr == -1 | return | endif
+  execute("vertical ". mmwinnr."resize ". g:minimap_width)
+endfunction
+
 function! minimap#vim#MinimapToggle() abort
     call s:toggle_window()
 endfunction
