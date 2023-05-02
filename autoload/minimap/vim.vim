@@ -903,10 +903,26 @@ function! s:source_win_enter() abort
     call s:update_highlight()
 endfunction
 
+" Odd scenarios where minmap is opened at full width (ie. split is closed)
+" This happens when starting from nvim-tree (with quit_on_open set)
 function! s:minimap_buffer_enter_handler() abort
+    if winwidth(winnr()) > 40 && g:minimap_mapped_buffer != -1
+        let s:fix_timer = timer_start(
+            \ 1,
+            \ {-> minimap#vim#fix()},
+            \ {'repeat': 0}
+            \ )
+    endif
+
     " Move the cursor to where we were in the main buffer. Without this it
     " jumps to the top of the minimap
     call cursor(s:last_pos, 1)
+endfunction
+
+" Yet to be understood functionality, where the minimap buffer is loaded on
+function! minimap#vim#fix() abort
+    execute("b". g:minimap_mapped_buffer)
+    call clearmatches(bufwinnr(g:minimap_mapped_buffer))
 endfunction
 
 function! s:source_buffer_enter_handler() abort
