@@ -1,6 +1,6 @@
 function! minimap#live#update() abort
-    " Live updates only if minimap open and for valid buffers
-    if bufwinnr('-MINIMAP-') == -1 || g:minimap_mapped_buffer != bufnr("%")
+    " Live updates only if in normal mode, with minimap open and for valid buffers
+    if mode() != 'n' || bufwinnr('-MINIMAP-') == -1 || g:minimap_mapped_buffer != bufnr("%")
         return
     endif
 
@@ -17,8 +17,8 @@ function! minimap#live#update() abort
 endfunction
 
 function! s:debounced_callback(source_buffer) abort
-    " Ensure the current buffer is still for this callback
-    if bufnr("%") != a:source_buffer
+    " Ensure normal mode and the current buffer is still for this callback
+    if mode() != 'n' || bufnr("%") != a:source_buffer
         return
     endif
 
